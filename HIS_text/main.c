@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
 #include "models.h"
 #include "utils.h"
 #include "patient.h"
@@ -12,16 +13,12 @@
 #include "schedule.h"
 #include "transaction.h"
 
-// ==========================================
-// 全局链表头指针实例化分配区
-// ==========================================
 PatientList patientHead = NULL;
 StaffList staffHead = NULL;
 MedicineList medicineHead = NULL;
 RecordList recordHead = NULL;
 BedList bedHead = NULL;
 
-// 初始化创建虚拟头节点
 void initLists() {
     patientHead = (PatientList)malloc(sizeof(Patient)); patientHead->next = NULL;
     staffHead = (StaffList)malloc(sizeof(Staff)); staffHead->next = NULL;
@@ -30,22 +27,17 @@ void initLists() {
     bedHead = (BedList)malloc(sizeof(Bed)); bedHead->next = NULL;
 }
 
-// ==========================================
-// 主函数入口：HIS 系统总调度枢纽
-// ==========================================
 int main() {
     initLists();
 
-    // 【阶段一】系统点火：一次性将所有独立文件的数据读取到内存中
-    loadAllDataFromTxt(); // 载入你的四个底层链表
-    loadDrugs();          // 载入队友模块
+    loadAllDataFromTxt();
+    loadDrugs();
     loadDrugHistory();
     loadDoctors();
     loadSchedules();
     loadTransactions();
-    loadAdminData();      // 载入管理端超管账号配置
+    loadAdminData();
 
-    // 【阶段二】主界面循环：对应流程图《主界面》的端口选择与统一登录分流
     while (1) {
         system("cls");
         printf("=========================================\n");
@@ -63,74 +55,85 @@ int main() {
 
         // ------------------ 端口 1: 管理端 ------------------
         if (port == 1) {
-            printf("\n>>> 管理端身份验证 <<<\n请输入管理账号: "); safeGetString(acc, 50);
-            printf("请输入口令密码: "); safeGetString(pwd, 50);
+            while (1) { // 【新增】死循环拦截
+                printf("\n>>> 管理端身份验证 (输入0取消) <<<\n请输入管理账号: "); safeGetString(acc, 50);
+                if (strcmp(acc, "0") == 0) break; // 输入0退出当前验证，返回大厅
 
-            // 校验 admin.txt 中的凭据
-            if (strcmp(acc, admin.username) == 0 && strcmp(pwd, admin.password) == 0) {
-                adminMenu(); // 验证通过
-            }
-            else {
-                printf("【拦截】账号或密码错误！\n"); system("pause");
+                printf("请输入口令密码: "); safeGetString(pwd, 50);
+
+                if (strcmp(acc, admin.username) == 0 && strcmp(pwd, admin.password) == 0) {
+                    adminMenu();
+                    break;
+                }
+                else {
+                    printf("【拦截】账号或密码错误！请重新尝试。\n");
+                }
             }
         }
         // ------------------ 端口 2: 医护端 ------------------
         else if (port == 2) {
-            printf("\n>>> 医护端身份验证 <<<\n请输入工号: "); safeGetString(acc, 50);
-            printf("请输入密码: "); safeGetString(pwd, 50);
+            while (1) { // 【新增】死循环拦截
+                printf("\n>>> 医护端身份验证 (输入0取消) <<<\n请输入工号: "); safeGetString(acc, 50);
+                if (strcmp(acc, "0") == 0) break;
 
-            // 遍历医护链表进行凭据匹配
-            Staff* s = staffHead->next;
-            Staff* me = NULL;
-            while (s) {
-                if (strcmp(s->id, acc) == 0 && strcmp(s->password, pwd) == 0) {
-                    me = s; break;
+                printf("请输入密码: "); safeGetString(pwd, 50);
+
+                Staff* s = staffHead->next;
+                Staff* me = NULL;
+                while (s) {
+                    if (strcmp(s->id, acc) == 0 && strcmp(s->password, pwd) == 0) {
+                        me = s; break;
+                    }
+                    s = s->next;
                 }
-                s = s->next;
-            }
-            if (me) {
-                staffTerminal(me); // 验证通过，将医生实体透传给工作台，避免二次登录
-            }
-            else {
-                printf("【拦截】工号不存在或密码错误！\n"); system("pause");
+                if (me) {
+                    staffTerminal(me);
+                    break;
+                }
+                else {
+                    printf("【拦截】工号不存在或密码错误！请重新尝试。\n");
+                }
             }
         }
         // ------------------ 端口 3: 患者端 ------------------
         else if (port == 3) {
-            printf("\n-- 患者服务端 --\n1. 账号密码登录\n2. 首次就诊建档(注册)\n请选择: ");
+            printf("\n-- 患者服务端 --\n1. 账号密码登录\n2. 首次就诊建档(注册)\n0. 返回大厅\n请选择: ");
             int pChoice = safeGetInt();
 
             if (pChoice == 1) {
-                printf("请输入患者ID (如P20251000): "); safeGetString(acc, 50);
-                printf("请输入登录密码: "); safeGetString(pwd, 50);
+                while (1) { // 【新增】死循环拦截
+                    printf("\n请输入患者ID (如P20251000, 输入0取消): "); safeGetString(acc, 50);
+                    if (strcmp(acc, "0") == 0) break;
 
-                // 遍历患者链表进行凭据匹配
-                Patient* p = patientHead->next;
-                Patient* me = NULL;
-                while (p) {
-                    if (strcmp(p->id, acc) == 0 && strcmp(p->password, pwd) == 0) {
-                        me = p; break;
+                    printf("请输入登录密码: "); safeGetString(pwd, 50);
+
+                    Patient* p = patientHead->next;
+                    Patient* me = NULL;
+                    while (p) {
+                        if (strcmp(p->id, acc) == 0 && strcmp(p->password, pwd) == 0) {
+                            me = p; break;
+                        }
+                        p = p->next;
                     }
-                    p = p->next;
-                }
-                if (me) {
-                    userTerminal(me->id); // 验证通过，将唯一ID透传给患者端，挂号缴费无须重输
-                }
-                else {
-                    printf("【拦截】患者ID或密码错误！\n"); system("pause");
+                    if (me) {
+                        userTerminal(me->id);
+                        break;
+                    }
+                    else {
+                        printf("【拦截】患者ID或密码错误！请重新尝试。\n");
+                    }
                 }
             }
             else if (pChoice == 2) {
-                registerPatient(); // 引导进入注册流程
+                registerPatient();
                 system("pause");
             }
         }
         // ------------------ 端口 0: 安全退出并保存 ------------------
         else if (port == 0) {
             printf("\n正在将三端数据封存至物理磁盘...\n");
-            // 【阶段三】系统停机：将发生变更的所有内存链表写回物理文件
-            saveAllDataToTxt(); // 你的 4 个核心链表保存
-            saveDrugs();        // 队友的数据保存
+            saveAllDataToTxt();
+            saveDrugs();
             saveDrugHistory();
             saveDoctors();
             saveSchedules();
