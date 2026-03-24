@@ -30,7 +30,7 @@
     <ClInclude Include="admin.h">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="time.h">
+    <ClInclude Include="time_t.h">
       <Filter>头文件</Filter>
     </ClInclude>
     <ClInclude Include="schedule.h">
@@ -80,7 +80,7 @@
     <ClCompile Include="decision.c">
       <Filter>源文件</Filter>
     </ClCompile>
-    <ClCompile Include="time.c">
+    <ClCompile Include="time_t.c">
       <Filter>源文件</Filter>
     </ClCompile>
   </ItemGroup>

@@ -1,5 +1,5 @@
 #define _CRT_SECURE_NO_WARNINGS
-#include "time.h"
+#include "time_t.h"
 #include <stdio.h>
 #include <time.h> // 必须引入C标准时间库
 

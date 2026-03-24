@@ -1,6 +1,6 @@
 #define _CRT_SECURE_NO_WARNINGS
 #include "decision.h"
-#include "drug.h"       // 引入药房头文件，以进行数据挖掘和分析
+#include "drug.h"       
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -160,7 +160,7 @@ static void drugProportionAdvice() {
 void decisionMenu() {
     int choice;
     do {
-        printf("\n========== AI 智能辅助决策控制台 ==========\n");
+        printf("\n========== 智能辅助决策控制台 ==========\n");
         printf("1. 人事效能与异常预测\n");
         printf("2. 分拣与药房负载分析\n");
         printf("3. 供应链采销配比优化建议\n");

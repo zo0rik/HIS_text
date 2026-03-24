@@ -2,15 +2,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
-// 引入本模块核心头文件
 #include "models.h"
 #include "utils.h"
 #include "patient.h"
 #include "staff.h"
 #include "admin.h"
-
-// 引入队友写的管理端独立模块头文件 (用于程序启动时加载底层数据)
 #include "drug.h"
 #include "doctor.h"
 #include "schedule.h"
@@ -72,7 +68,7 @@ int main() {
 
             // 校验 admin.txt 中的凭据
             if (strcmp(acc, admin.username) == 0 && strcmp(pwd, admin.password) == 0) {
-                adminMenu(); // 验证通过，进入队友构建的大屏路由
+                adminMenu(); // 验证通过
             }
             else {
                 printf("【拦截】账号或密码错误！\n"); system("pause");

@@ -3,8 +3,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
-// 引入队友写好的模块头文件
 #include "drug.h"
 #include "decision.h"
 #include "doctor.h"

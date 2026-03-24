@@ -130,7 +130,7 @@
     <ClInclude Include="models.h" />
     <ClInclude Include="schedule.h" />
     <ClInclude Include="staff.h" />
-    <ClInclude Include="time.h" />
+    <ClInclude Include="time_t.h" />
     <ClInclude Include="transaction.h" />
     <ClInclude Include="patient.h" />
     <ClInclude Include="utils.h" />
@@ -143,7 +143,7 @@
     <ClCompile Include="main.c" />
     <ClCompile Include="schedule.c" />
     <ClCompile Include="staff.c" />
-    <ClCompile Include="time.c" />
+    <ClCompile Include="time_t.c" />
     <ClCompile Include="transaction.c" />
     <ClCompile Include="patient.c" />
     <ClCompile Include="utils.c" />
