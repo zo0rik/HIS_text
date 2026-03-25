@@ -48,6 +48,9 @@
     <ClInclude Include="drug.h">
       <Filter>头文件</Filter>
     </ClInclude>
+    <ClInclude Include="inpatient_department.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="utils.c">
@@ -81,6 +84,9 @@
       <Filter>源文件</Filter>
     </ClCompile>
     <ClCompile Include="time_t.c">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="inpatient_department.c">
       <Filter>源文件</Filter>
     </ClCompile>
   </ItemGroup>

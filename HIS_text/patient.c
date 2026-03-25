@@ -39,16 +39,24 @@ void registerPatient() {
 
     printf("\n--- 账户注册与建档 ---\n");
     printf("请选择就诊类型 (1.普通 2.急诊): ");
-    int type = safeGetInt();
+    int type;
+    while (1) {
+        type = safeGetInt();
+        if (type == 1 || type == 2) break;
+        printf("【输入错误】只能输入 1 或 2，请重新选择: ");
+    }
     newPatient->isEmergency = (type == 2) ? 1 : 0;
 
     printf("请输入姓名: "); safeGetString(newPatient->name, 100);
-    printf("请设置登录密码: "); safeGetString(newPatient->password, 50); // 系统登录凭据
-    printf("请输入性别: "); safeGetString(newPatient->gender, 10);
+    printf("请设置登录密码: "); safeGetString(newPatient->password, 50);
 
-    // 急诊跳过繁琐信息录入
+    // 【防呆】调用强制输入男性/女性
+    printf("请输入性别 (男性/女性): ");
+    safeGetGender(newPatient->gender, 10);
+
     if (!newPatient->isEmergency) {
-        printf("请输入年龄: "); newPatient->age = safeGetInt();
+        printf("请输入年龄: ");
+        newPatient->age = safeGetPositiveInt(); // 【防呆】必须是正整数
         printf("请输入过敏史(无则填无): "); safeGetString(newPatient->allergy, 100);
     }
     else {
@@ -56,11 +64,9 @@ void registerPatient() {
         strcpy(newPatient->allergy, "急诊未知");
     }
 
-    // 初始化系统分配属性
-    generatePatientID(newPatient->id); // 自动分配ID
-    newPatient->balance = 0.0;         // 初始资金账户为0
+    generatePatientID(newPatient->id);
+    newPatient->balance = 0.0;
 
-    // 采用尾插法挂载到患者全局链表
     Patient* temp = patientHead;
     while (temp->next) temp = temp->next;
     temp->next = newPatient;
@@ -189,8 +195,23 @@ void bookAppointment(const char* currentPatientId) {
         while (temp->next) temp = temp->next;
         temp->next = newRecord;
 
+        // 【新增需求】动态统计并显示该医生当次(同日)候诊病人数量
+        int currentWaiting = 0;
+        Record* waitRec = recordHead->next;
+        while (waitRec) {
+            if (strcmp(waitRec->staffId, staffIdStr) == 0 &&
+                waitRec->type == 1 &&
+                waitRec->isPaid == 0 &&
+                strstr(waitRec->description, targetSch->date)) { // 精确锁定同一天
+                currentWaiting++;
+            }
+            waitRec = waitRec->next;
+        }
+
         printf("\n【挂号成功】您已成功预约 %s 医师 (%s %s)！费用 %.2f 元，请前往财务中心缴费。\n",
             targetDoc->name, targetSch->date, targetSch->shift, regFee);
+        printf(">>> 实时播报：该医生当次候诊队列总人数已达 %d 人 <<<\n", currentWaiting);
+
         system("pause");
         return;
     }

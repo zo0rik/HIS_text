@@ -2,13 +2,16 @@
 #ifndef UTILS_H
 #define UTILS_H
 
-// 安全输入函数声明 (替代 scanf 防止死循环)
+void loadAllDataFromTxt();
+void saveAllDataToTxt();
+
+// 安全与防呆输入接口
 void safeGetString(char* buffer, int size);
 int safeGetInt();
 double safeGetDouble();
+int safeGetPositiveInt(); // 防呆: 必须输入正整数
+void safeGetGender(char* buffer, int size); // 防呆: 只能输入"男性"或"女性"
 
-// 数据读写接口声明
-void loadAllDataFromTxt();
-void saveAllDataToTxt();
+void getCurrentTimeStr(char* buffer, int size); // 获取无空格的时间戳
 
 #endif

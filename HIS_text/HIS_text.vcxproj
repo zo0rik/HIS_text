@@ -127,6 +127,7 @@
     <ClInclude Include="decision.h" />
     <ClInclude Include="doctor.h" />
     <ClInclude Include="drug.h" />
+    <ClInclude Include="inpatient_department.h" />
     <ClInclude Include="models.h" />
     <ClInclude Include="schedule.h" />
     <ClInclude Include="staff.h" />
@@ -140,6 +141,7 @@
     <ClCompile Include="decision.c" />
     <ClCompile Include="doctor.c" />
     <ClCompile Include="drug.c" />
+    <ClCompile Include="inpatient_department.c" />
     <ClCompile Include="main.c" />
     <ClCompile Include="schedule.c" />
     <ClCompile Include="staff.c" />
