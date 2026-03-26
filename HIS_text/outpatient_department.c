@@ -187,19 +187,32 @@ void prescribeMedicine(const char* docId) {
         while (1) {
             printf("请输入 [%s] 的开具数量 (单次最多开10盒): ", selectedMed->name);
             qty = safeGetPositiveInt();
-            if (qty > 10) printf("【警告】医保规定单种药品一次最多开具 10 盒！\n");
-            else if (qty > selectedMed->stock) printf("【警告】药房库存不足！当前剩余库存为: %d\n", selectedMed->stock);
-            else break;
+            if (qty > 10) {
+                printf("【警告】医保规定单种药品一次最多开具 10 盒！\n");
+            }
+            else if (qty > selectedMed->stock) {
+                printf("【警告】药房库存不足！当前剩余库存为: %d\n", selectedMed->stock);
+            }
+            else {
+                break;
+            }
         }
 
+        // 【核心修复：医护端开药时，药房库存立刻真实时扣减！】
+        selectedMed->stock -= qty;
+        printf("【药房实时同步】已扣减 %s 库存 %d 盒，当前余量: %d\n", selectedMed->name, qty, selectedMed->stock);
+
         double totalCost = qty * selectedMed->price;
+
         Record* r3 = (Record*)malloc(sizeof(Record));
+        extern void generateRecordID(char* buffer);
         generateRecordID(r3->recordId);
         r3->type = 3; strcpy(r3->patientId, pId); strcpy(r3->staffId, docId);
         r3->cost = totalCost; r3->isPaid = 0;
         sprintf(r3->description, "药品:%s_单价:%.2f_数量:%d_总价:%.2f", selectedMed->name, selectedMed->price, qty, totalCost);
         getCurrentTimeStr(r3->createTime, 30);
         r3->next = recordHead->next; recordHead->next = r3;
+
         printf("【成功】③处方记录已生成下发，该药总计 %.2f 元。您可以继续搜索开药。\n", totalCost);
     }
 }

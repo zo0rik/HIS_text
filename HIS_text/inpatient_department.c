@@ -6,7 +6,7 @@
 #include "models.h"
 #include "utils.h"
 #include "inpatient_department.h"
-
+#include "transaction.h"
 // ---------------------------------------------------------
 // 内部工具：通过住院通知单追溯负责科室
 // ---------------------------------------------------------
@@ -257,6 +257,20 @@ void admitPatient(const char* docId) {
     if (targetPat->balance >= finalDeposit) {
         targetPat->balance -= finalDeposit; isPaid = 1;
         printf("已成功从患者账户划扣押金，住院立即生效。\n");
+
+        // 【核心新增：同步押金收取至队友报表】
+        Transaction* newTrans = (Transaction*)malloc(sizeof(Transaction));
+        int maxId = 0; Transaction* curr = transactionList;
+        while (curr) { if (curr->id > maxId) maxId = curr->id; curr = curr->next; }
+        newTrans->id = maxId + 1;
+        newTrans->type = 2; // 2 代表队友结构里的住院类
+        newTrans->amount = finalDeposit;
+        getCurrentTimeStr(newTrans->time, 30);
+        sprintf(newTrans->description, "住院押金收取(患者:%s)", targetPat->name);
+        newTrans->next = NULL;
+
+        if (!transactionList) transactionList = newTrans;
+        else { curr = transactionList; while (curr->next) curr = curr->next; curr->next = newTrans; }
     }
     else {
         printf("【提示】患者余额不足！将生成待缴费住院押金账单，请提醒前往财务缴费。\n");
@@ -418,6 +432,8 @@ void dailyDeductionSimulation() {
 // ---------------------------------------------------------
 // 5. 办理出院 
 // ---------------------------------------------------------
+// 5. 办理出院 (增加前置科室选择、同步交易报表)
+// ---------------------------------------------------------
 void dischargePatient() {
     while (1) {
         system("cls");
@@ -467,32 +483,43 @@ void dischargePatient() {
         int actualDays = safeGetPositiveInt();
         int billableDays = actualDays;
 
+        // 早 8 点前办理出院，免除当日床位费
         if (currentHour >= 0 && currentHour < 8) {
             printf("【特惠】当前办理时间 %02d:00，符合早8点前免收规定，减免最后一日床位费！\n", currentHour);
             billableDays = (actualDays > 1) ? actualDays - 1 : 0;
         }
 
+        // 核算总消费 (床位费 + 期间药费)
         double totalBedFee = billableDays * targetBed->price;
         double totalDrugFee = 0;
         Record* r = recordHead->next;
-        while (r) { if (strcmp(r->patientId, pId) == 0 && r->type == 3 && r->isPaid == 0) { totalDrugFee += r->cost; r->isPaid = 1; } r = r->next; }
+        while (r) {
+            if (strcmp(r->patientId, pId) == 0 && r->type == 3 && r->isPaid == 0) {
+                totalDrugFee += r->cost; r->isPaid = 1; // 并入总账后，标记药单为已缴费
+            }
+            r = r->next;
+        }
 
         double totalHospitalCost = totalBedFee + totalDrugFee;
         r = recordHead->next; Record* r5 = NULL;
+        // 提取当时的住院押金单
         while (r) { if (strcmp(r->patientId, pId) == 0 && r->type == 5 && r->isPaid == 1) { r5 = r; break; } r = r->next; }
 
         if (r5) {
             char outTime[30]; getCurrentTimeStr(outTime, 30);
+            // 更新记录，补全实际天数和总费用等信息
             sprintf(r5->description, "病房:%s_床位:%s_入院日期:%s_实际天数:%d_押金:%.0f_出院日期:%s_总费用:%.2f",
                 targetBed->wardType, targetBed->bedId, r5->createTime, actualDays, r5->cost, outTime, totalHospitalCost);
-            r5->isPaid = 2;
+            r5->isPaid = 2; // 闭环
 
+            // 【情况 A】: 押金有结余，退还差额
             if (r5->cost > totalHospitalCost) {
                 double refund = r5->cost - totalHospitalCost;
                 Patient* pt = patientHead->next;
                 while (pt) { if (strcmp(pt->id, pId) == 0) { pt->balance += refund; break; } pt = pt->next; }
                 printf("\n【退款通知】经系统清算，押金结余 %.2f 元。已实时原路退回至患者账户余额！\n", refund);
 
+                // --- 业务联动：生成 Type 8 个人退款流水 ---
                 Record* r8 = (Record*)malloc(sizeof(Record));
                 extern void generateRecordID(char* buffer);
                 generateRecordID(r8->recordId);
@@ -502,12 +529,43 @@ void dischargePatient() {
                 getCurrentTimeStr(r8->createTime, 30);
                 r8->next = recordHead->next; recordHead->next = r8;
 
+                // --- 【核心新增】业务联动：生成 Transaction 退款流水 (队友的报表) ---
+                Transaction* newTrans = (Transaction*)malloc(sizeof(Transaction));
+                int maxId = 0; Transaction* curr = transactionList;
+                while (curr) { if (curr->id > maxId) maxId = curr->id; curr = curr->next; }
+                newTrans->id = maxId + 1;
+                newTrans->type = 2; // 住院类
+                newTrans->amount = -refund; // 【负数】代表医院把钱退给患者了，财报冲减
+                getCurrentTimeStr(newTrans->time, 30);
+                strcpy(newTrans->description, "出院清算_押金结余退回");
+                newTrans->next = NULL;
+
+                if (!transactionList) transactionList = newTrans;
+                else { curr = transactionList; while (curr->next) curr = curr->next; curr->next = newTrans; }
+
             }
+            // 【情况 B】: 押金不足，提醒患者补缴
             else if (r5->cost < totalHospitalCost) {
-                printf("\n【补缴通知】经系统清算，押金透支 %.2f 元。请通知患者前往财务中心补缴差额！\n", totalHospitalCost - r5->cost);
+                double arrears = totalHospitalCost - r5->cost;
+                printf("\n【补缴通知】经系统清算，押金透支 %.2f 元。请通知患者前往财务中心补缴差额！\n", arrears);
+
+                // 生成一笔特殊的待缴费记录 (Type 5，因为算是住院补缴)
+                Record* r_arrears = (Record*)malloc(sizeof(Record));
+                extern void generateRecordID(char* buffer);
+                generateRecordID(r_arrears->recordId);
+                r_arrears->type = 5; strcpy(r_arrears->patientId, pId); strcpy(r_arrears->staffId, "SYS");
+                r_arrears->cost = arrears; r_arrears->isPaid = 0; // 0 表示待缴费
+                sprintf(r_arrears->description, "出院清算_补缴欠费差额");
+                getCurrentTimeStr(r_arrears->createTime, 30);
+                r_arrears->next = recordHead->next; recordHead->next = r_arrears;
+                // 这笔欠款只有等患者在 financeCenter 缴清了，才会生成正向的 Transaction 记入财报
+            }
+            else {
+                printf("\n【结算通知】押金刚好抵扣所有消费，无需退补。\n");
             }
         }
 
+        // 释放床位
         targetBed->isOccupied = 0; strcpy(targetBed->patientId, "");
         printf("\n========== 出院结算单 ==========\n患者: %s | 床位总费: %.2f | 期间药费: %.2f | 总费用: %.2f\n病床 %s 已释放空闲。\n", pId, totalBedFee, totalDrugFee, totalHospitalCost, targetBed->bedId);
 

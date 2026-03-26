@@ -8,7 +8,7 @@
 #include "utils.h"
 #include "doctor.h"
 #include "schedule.h"
-
+#include "transaction.h"
 void generatePatientID(char* idBuffer) {
     static int counter = 1000;
     sprintf(idBuffer, "P2025%04d", counter++);
@@ -308,13 +308,27 @@ void financeCenter(const char* currentPatientId) {
             p->balance -= tRec->cost; tRec->isPaid = 1;
             printf("【缴费成功】已扣款。当前账户余额: %.2f\n", p->balance);
 
-            char mName[50]; int qty;
-            if (sscanf(tRec->description, "药品:%[^_]_单价:%*f_数量:%d", mName, &qty) == 2) {
-                Medicine* m = medicineHead->next;
-                while (m) {
-                    if (strcmp(m->name, mName) == 0) { m->stock -= qty; break; }
-                    m = m->next;
-                }
+            // 【核心新增：将缴费流水实时同步到队友的统计报表 transactionList 中】
+            Transaction* newTrans = (Transaction*)malloc(sizeof(Transaction));
+            int maxId = 0;
+            Transaction* curr = transactionList;
+            while (curr) { if (curr->id > maxId) maxId = curr->id; curr = curr->next; }
+            newTrans->id = maxId + 1;
+
+            if (tRec->type == 3) newTrans->type = 3;      // 队友的报表类型 3:药品
+            else if (tRec->type == 5) newTrans->type = 2; // 队友的报表类型 2:住院
+            else newTrans->type = 1;                      // 队友的报表类型 1:门诊挂号/检查
+
+            newTrans->amount = tRec->cost;
+            getCurrentTimeStr(newTrans->time, 30);
+            strcpy(newTrans->description, tRec->description);
+            newTrans->next = NULL;
+
+            if (!transactionList) transactionList = newTrans;
+            else {
+                curr = transactionList;
+                while (curr->next) curr = curr->next;
+                curr->next = newTrans;
             }
         }
         system("pause");
