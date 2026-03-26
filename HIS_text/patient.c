@@ -406,16 +406,56 @@ void medicalRecords(const char* currentPatientId) {
 
 // 患者端总路由菜单 (文案修改)
 // ---------------------------------------------------------
+// ---------------------------------------------------------
+// 新增功能：修改患者账号密码
+// ---------------------------------------------------------
+void changePatientPassword(const char* currentId) {
+    Patient* p = findPatientById(currentId);
+    if (!p) return;
+
+    char oldPwd[50], newPwd[50], confirmPwd[50];
+    printf("\n--- 修改个人登录密码 ---\n");
+    printf("请输入原密码 (输入0返回): ");
+    safeGetString(oldPwd, 50);
+    if (strcmp(oldPwd, "0") == 0) return;
+
+    if (strcmp(p->password, oldPwd) != 0) {
+        printf("【错误】原密码不正确！\n");
+        system("pause");
+        return;
+    }
+
+    printf("请输入新密码: ");
+    safeGetString(newPwd, 50);
+    printf("请再次确认新密码: ");
+    safeGetString(confirmPwd, 50);
+
+    if (strcmp(newPwd, confirmPwd) != 0) {
+        printf("【错误】两次输入的新密码不一致！\n");
+        system("pause");
+        return;
+    }
+
+    strcpy(p->password, newPwd);
+    printf("【成功】密码修改成功，请牢记您的新密码！\n");
+    system("pause");
+}
+
+// ---------------------------------------------------------
+// 患者端总路由菜单
+// ---------------------------------------------------------
 void userTerminal(const char* currentId) {
     while (1) {
         system("cls");
         Patient* p = findPatientById(currentId);
         printf("\n--- 患者自助终端 (当前登录患者: %s - %s) ---\n", p->name, p->id);
-        printf("1. 自助预约挂号\n2. 财务中心缴费\n3. 个人医疗档案库\n0. 注销并返回大厅\n选择: ");
+
+        printf("1. 自助预约挂号\n2. 财务中心缴费\n3. 个人医疗档案库\n4. 修改登录密码\n0. 注销并返回大厅\n选择: ");
         switch (safeGetInt()) {
         case 1: bookAppointment(currentId); break;
         case 2: financeCenter(currentId); break;
         case 3: medicalRecords(currentId); break;
+        case 4: changePatientPassword(currentId); break; // 挂载新增的改密码功能
         case 0: return;
         }
     }

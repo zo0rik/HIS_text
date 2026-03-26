@@ -51,6 +51,12 @@
     <ClInclude Include="inpatient_department.h">
       <Filter>头文件</Filter>
     </ClInclude>
+    <ClInclude Include="outpatient_department.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="work_management.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="utils.c">
@@ -87,6 +93,12 @@
       <Filter>源文件</Filter>
     </ClCompile>
     <ClCompile Include="inpatient_department.c">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="outpatient_department.c">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="work_management.c">
       <Filter>源文件</Filter>
     </ClCompile>
   </ItemGroup>
