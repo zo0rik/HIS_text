@@ -168,6 +168,9 @@ void diagnoseAndTest(const char* docId) {
 // ---------------------------------------------------------
 // 门诊：处方开药 (支持药品模糊搜索与最大10盒限制)
 // ---------------------------------------------------------
+// ---------------------------------------------------------
+// 门诊：处方开药 (修复崩溃BUG，支持序号与真实编号双重选择)
+// ---------------------------------------------------------
 void prescribeMedicine(const char* docId) {
     char pId[20];
     if (strlen(currentCallingPatientId) > 0) {
@@ -184,17 +187,19 @@ void prescribeMedicine(const char* docId) {
         printf("\n搜索药品名称或编号关键字 (输入0结束开药): "); safeGetString(key, 50);
         if (strcmp(key, "0") == 0) break;
 
-        // 【模糊搜索并列出所有匹配项】
+        // 【修复崩溃BUG】增加初始化，并扩大容量防止越界
         Medicine* m = medicineHead->next;
-        Medicine* matched[50]; // 最多展示50个结果
+        Medicine* matched[100] = { NULL };
         int mCount = 0;
 
         printf("\n--- 匹配到的药品库 ---\n");
         while (m) {
             if (strstr(m->name, key) || strstr(m->id, key)) {
-                matched[mCount] = m;
-                printf("[%d] 编号:%s | 名称:%-15s | 单价:%.2f | 库存:%d\n", mCount + 1, m->id, m->name, m->price, m->stock);
-                mCount++;
+                if (mCount < 100) { // 越界保护
+                    matched[mCount] = m;
+                    printf("[%d] 编号:%s | 名称:%-15s | 单价:%.2f | 库存:%d\n", mCount + 1, m->id, m->name, m->price, m->stock);
+                    mCount++;
+                }
             }
             m = m->next;
         }
@@ -204,16 +209,44 @@ void prescribeMedicine(const char* docId) {
             continue;
         }
 
-        printf("请选择要开具的药品编号 (输入0重新搜索): ");
-        int mChoice = safeGetInt();
-        if (mChoice == 0 || mChoice > mCount) continue;
+        // 【核心修复：支持序号和真实编号双向匹配】
+        char mChoiceStr[50];
+        printf("请输入要开具的药品【前置序号】或【真实编号】(输入0重新搜索): ");
+        safeGetString(mChoiceStr, 50);
 
-        Medicine* selectedMed = matched[mChoice - 1];
+        if (strcmp(mChoiceStr, "0") == 0) continue;
 
-        // 【开药数量与库存、限购限制】
+        Medicine* selectedMed = NULL;
+
+        // 尝试判断输入的是不是纯数字序号
+        int isNum = 1;
+        for (int i = 0; i < strlen(mChoiceStr); i++) {
+            if (mChoiceStr[i] < '0' || mChoiceStr[i] > '9') { isNum = 0; break; }
+        }
+
+        if (isNum) {
+            int idx = atoi(mChoiceStr);
+            if (idx > 0 && idx <= mCount) selectedMed = matched[idx - 1]; // 序号命中
+        }
+
+        // 如果序号没命中（或者输入的根本不是纯数字，比如 M1065）
+        if (!selectedMed) {
+            for (int i = 0; i < mCount; i++) {
+                if (strcmp(matched[i]->id, mChoiceStr) == 0) {
+                    selectedMed = matched[i]; // 真实编号命中
+                    break;
+                }
+            }
+        }
+
+        if (!selectedMed) {
+            printf("输入无效！未找到对应的药品序号或编号。\n");
+            continue;
+        }
+
         int qty;
         while (1) {
-            printf("请输入开具数量 (单次最多开10盒): ");
+            printf("请输入 [%s] 的开具数量 (单次最多开10盒): ", selectedMed->name);
             qty = safeGetPositiveInt();
             if (qty > 10) {
                 printf("【警告】医保规定单种药品一次最多开具 10 盒！\n");
@@ -222,19 +255,21 @@ void prescribeMedicine(const char* docId) {
                 printf("【警告】药房库存不足！当前剩余库存为: %d\n", selectedMed->stock);
             }
             else {
-                break; // 满足条件跳出循环
+                break;
             }
         }
 
         double totalCost = qty * selectedMed->price;
 
         Record* r3 = (Record*)malloc(sizeof(Record));
+        extern void generateRecordID(char* buffer);
         generateRecordID(r3->recordId);
         r3->type = 3; strcpy(r3->patientId, pId); strcpy(r3->staffId, docId);
         r3->cost = totalCost; r3->isPaid = 0;
         sprintf(r3->description, "药品:%s_单价:%.2f_数量:%d_总价:%.2f", selectedMed->name, selectedMed->price, qty, totalCost);
         getCurrentTimeStr(r3->createTime, 30);
         r3->next = recordHead->next; recordHead->next = r3;
+
         printf("【成功】③处方记录已生成下发，该药总计 %.2f 元。您可以继续搜索开药。\n", totalCost);
     }
 }
