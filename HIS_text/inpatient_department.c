@@ -68,22 +68,47 @@ const char* getRoomDepartment(const char* bedId) {
     return "未知科室";
 }
 
-void checkAndAdjustBedTension() {
+void checkAndAdjustBedTension(const char* targetDept) {
     int total = 0, empty = 0;
     Bed* b = bedHead->next;
-    while (b) { total++; if (b->isOccupied == 0) empty++; b = b->next; }
 
+    // 只统计目标科室的床位情况
+    while (b) {
+        if (strcmp(getRoomDepartment(b->bedId), targetDept) == 0) {
+            total++;
+            if (b->isOccupied == 0) empty++;
+        }
+        b = b->next;
+    }
+
+    // 如果该科室空床率低于 20%，触发专属扩容机制
     if (total > 0 && ((float)empty / total) < 0.2f) {
-        printf("\n【系统告警】当前空床不足 20%%，自动将单人疗养病房转为双人病房！\n");
+        printf("\n【系统动态调度】%s 专属空床率不足 20%%！触发紧急扩容机制...\n", targetDept);
+        printf(">>> 正在将【%s】内的单人陪护疗养病房临时调整为双人病房 <<<\n", targetDept);
+
         b = bedHead->next;
+        int converted = 0;
         while (b) {
-            if (b->isOccupied == 0 && strcmp(b->bedType, "单人陪护疗养病房") == 0) {
-                strcpy(b->bedType, "双人病房"); b->price = 150.0;
+            // 只拆分本科室的、且目前空闲的单人疗养房
+            if (b->isOccupied == 0 &&
+                strcmp(b->bedType, "单人陪护疗养病房") == 0 &&
+                strcmp(getRoomDepartment(b->bedId), targetDept) == 0) {
+
+                strcpy(b->bedType, "双人病房");
+                b->price = 150.0; // 调整为双人房价格
+
                 Bed* extra = (Bed*)malloc(sizeof(Bed)); *extra = *b;
-                sprintf(extra->bedId, "%sA", b->bedId);
+                sprintf(extra->bedId, "%sA", b->bedId); // 生成附属加床如 5-1A
                 extra->next = bedHead->next; bedHead->next = extra;
+                converted++;
             }
             b = b->next;
+        }
+        if (converted > 0) {
+            printf("【扩容成功】已为 %s 增加了 %d 张可用双人床位！\n", targetDept, converted);
+        }
+        else {
+            printf("【扩容失败】%s 当前已无空余的单人疗养病房可供拆分。\n", targetDept);
         }
     }
 }
@@ -162,7 +187,8 @@ void viewAllBeds() {
 // 2. 办理入院
 // ---------------------------------------------------------
 void admitPatient(const char* docId) {
-    initBedsIfEmpty(); checkAndAdjustBedTension();
+    initBedsIfEmpty();
+    // 【修改点】移除了顶部的全局 checkAndAdjustBedTension()，改为在确定科室后单独调用
 
     printf("\n--- 门诊下发《待入院通知单》队列 ---\n");
     Record* r = recordHead->next; int noticeCount = 0;
@@ -215,6 +241,9 @@ void admitPatient(const char* docId) {
     char requiredDept[50];
     getResponsibleDept(pId, requiredDept);
     printf("\n>>> 锁定通知单：该患者由【%s】下发，正在为您筛选 %s 的专属空床...\n", requiredDept, requiredDept);
+
+    // 【新增核心升级】此时我们已经知道了目标科室 requiredDept，执行精确的科室级空床校验与扩容！
+    checkAndAdjustBedTension(requiredDept);
 
     printf("请输入拟住院天数: "); int days = safeGetPositiveInt();
 
@@ -274,7 +303,6 @@ void admitPatient(const char* docId) {
     if (isPaid) printf("【成功】已成功办理入院，分配至 %s 的 %s 床。\n", requiredDept, finalBed->bedId);
     else printf("【待缴费】已预留 %s 床位，并生成账单。\n", finalBed->bedId);
 }
-
 // ---------------------------------------------------------
 // 4. 日常查房与开医嘱
 // ---------------------------------------------------------
